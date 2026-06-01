@@ -194,22 +194,22 @@ function update(dt) {
   if (puck.y - PUCK_R < 0) {
     if (puck.x > gx1 && puck.x < gx2) {
       doScore('player');
+      return;
     } else {
       puck.y = PUCK_R;
       puck.vy = Math.abs(puck.vy);
     }
-    return;
   }
 
   // گل پایین = هوش مصنوعی امتیاز گرفت
   if (puck.y + PUCK_R > H) {
     if (puck.x > gx1 && puck.x < gx2) {
       doScore('ai');
+      return;
     } else {
       puck.y = H - PUCK_R;
       puck.vy = -Math.abs(puck.vy);
     }
-    return;
   }
 
   collideMallet(player);
@@ -271,6 +271,12 @@ function updateAI(dt) {
 function doScore(who) {
   if (scoring) return;
   scoring = true;
+
+  // فوری توپ رو وسط ببر تا دیگه گل تشخیص داده نشه
+  puck.x = W / 2;
+  puck.y = H / 2;
+  puck.vx = 0;
+  puck.vy = 0;
 
   if (who === 'player') {
     playerScore++;
