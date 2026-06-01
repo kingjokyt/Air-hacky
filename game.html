@@ -114,6 +114,69 @@
   .goal-flash.ai { background: radial-gradient(ellipse, rgba(255,68,102,0.3) 0%, transparent 70%); }
   .goal-flash.show { opacity: 1; }
   .controls-hint { font-size: 11px; opacity: 0.4; text-align: center; letter-spacing: 1px; }
+  .btn-lb {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.6);
+    padding: 8px 24px;
+    font-size: 13px;
+    font-family: 'Vazirmatn', sans-serif;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  .btn-lb:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+  .lb-panel {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    backdrop-filter: blur(10px);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    overflow-y: auto;
+  }
+  .lb-panel.hidden { display: none; }
+  .lb-title { font-size: 22px; font-weight: 900; margin-bottom: 16px; }
+  .lb-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  .lb-stat-box {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .lb-stat-val { font-size: 24px; font-weight: 900; }
+  .lb-stat-val.win { color: #00ff88; }
+  .lb-stat-val.lose { color: #ff4466; }
+  .lb-stat-val.rate { color: #ffcc00; }
+  .lb-stat-lbl { font-size: 10px; opacity: 0.5; margin-top: 2px; }
+  .lb-history-title { font-size: 13px; opacity: 0.5; margin-bottom: 8px; align-self: flex-start; }
+  .lb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    background: rgba(255,255,255,0.04);
+  }
+  .lb-row .result { font-weight: 700; }
+  .lb-row .result.win { color: #00ff88; }
+  .lb-row .result.lose { color: #ff4466; }
+  .lb-row .score { opacity: 0.7; }
+  .lb-row .level-tag { font-size: 10px; opacity: 0.5; }
+  .lb-empty { opacity: 0.4; font-size: 14px; margin-top: 30px; }
 </style>
 </head>
 <body>
@@ -142,6 +205,14 @@
         <button class="level-btn hard" onclick="selectLevel('hard', this)">💀 سخت</button>
       </div>
       <button class="btn" onclick="startGame()">شروع بازی</button>
+      <button class="btn-lb" onclick="showLeaderboard()">🏆 لیدربرد</button>
+    </div>
+
+    <div id="leaderboard-panel" class="lb-panel hidden">
+      <div class="lb-title">🏆 لیدربرد شما</div>
+      <div id="lb-stats"></div>
+      <div id="lb-history"></div>
+      <button class="btn-lb" onclick="hideLeaderboard()">✕ بستن</button>
     </div>
   </div>
   <div class="controls-hint">لمس کنید و بکشید تا مالت حرکت کند</div>
@@ -150,6 +221,79 @@
 <script>
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
+
+// ── لیدربرد (ذخیره در localStorage) ──
+const LB_KEY = 'airhockey_stats';
+
+function loadStats() {
+  try {
+    return JSON.parse(localStorage.getItem(LB_KEY)) || { wins: 0, losses: 0, history: [] };
+  } catch { return { wins: 0, losses: 0, history: [] }; }
+}
+
+function saveStats(stats) {
+  try { localStorage.setItem(LB_KEY, JSON.stringify(stats)); } catch {}
+}
+
+function recordResult(winner, pScore, aScore, level) {
+  const stats = loadStats();
+  if (winner === 'player') stats.wins++;
+  else stats.losses++;
+  stats.history.unshift({
+    winner,
+    playerScore: pScore,
+    aiScore: aScore,
+    level,
+    date: new Date().toLocaleDateString('fa-IR')
+  });
+  if (stats.history.length > 20) stats.history = stats.history.slice(0, 20);
+  saveStats(stats);
+}
+
+function showLeaderboard() {
+  const stats = loadStats();
+  const total = stats.wins + stats.losses;
+  const rate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+
+  document.getElementById('lb-stats').innerHTML = `
+    <div class="lb-stats-grid">
+      <div class="lb-stat-box">
+        <div class="lb-stat-val win">${stats.wins}</div>
+        <div class="lb-stat-lbl">برد</div>
+      </div>
+      <div class="lb-stat-box">
+        <div class="lb-stat-val lose">${stats.losses}</div>
+        <div class="lb-stat-lbl">باخت</div>
+      </div>
+      <div class="lb-stat-box">
+        <div class="lb-stat-val rate">${rate}%</div>
+        <div class="lb-stat-lbl">نرخ برد</div>
+      </div>
+    </div>
+  `;
+
+  const levelNames = { easy: '😊', medium: '😤', hard: '💀' };
+  let histHTML = '<div class="lb-history-title">آخرین بازی‌ها</div>';
+  if (stats.history.length === 0) {
+    histHTML += '<div class="lb-empty">هنوز بازی نکردید!</div>';
+  } else {
+    stats.history.forEach(h => {
+      const won = h.winner === 'player';
+      histHTML += `
+        <div class="lb-row">
+          <span class="result ${won ? 'win' : 'lose'}">${won ? '🏆 برد' : '💔 باخت'}</span>
+          <span class="score">${h.playerScore} - ${h.aiScore}</span>
+          <span class="level-tag">${levelNames[h.level] || ''} ${h.date}</span>
+        </div>`;
+    });
+  }
+  document.getElementById('lb-history').innerHTML = histHTML;
+  document.getElementById('leaderboard-panel').classList.remove('hidden');
+}
+
+function hideLeaderboard() {
+  document.getElementById('leaderboard-panel').classList.add('hidden');
+}
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -422,11 +566,20 @@ function flashGoal(who) {
 }
 
 function endGame(winner) {
+  // ذخیره نتیجه در لیدربرد
+  recordResult(winner, playerScore, aiScore, currentLevel);
+
+  // ارسال به بات تلگرام
   if (tg) {
     tg.sendData(JSON.stringify({
-      playerScore, aiScore, winner
+      playerScore, aiScore, winner, level: currentLevel
     }));
   }
+
+  const stats = loadStats();
+  const total = stats.wins + stats.losses;
+  const rate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+
   const levelNames = { easy: 'آسون', medium: 'متوسط', hard: 'سخت' };
   const levelClass = currentLevel;
   const overlay = document.getElementById('overlay');
@@ -434,12 +587,18 @@ function endGame(winner) {
     <div class="overlay-title">${winner === 'player' ? '🎉 بردید!' : '😔 باختید!'}</div>
     <div class="level-badge ${levelClass}">${levelNames[currentLevel]}</div>
     <div class="overlay-sub">نتیجه: ${playerScore} - ${aiScore}</div>
+    <div class="lb-stats-grid" style="width:90%;margin:10px 0">
+      <div class="lb-stat-box"><div class="lb-stat-val win">${stats.wins}</div><div class="lb-stat-lbl">کل برد</div></div>
+      <div class="lb-stat-box"><div class="lb-stat-val lose">${stats.losses}</div><div class="lb-stat-lbl">کل باخت</div></div>
+      <div class="lb-stat-box"><div class="lb-stat-val rate">${rate}%</div><div class="lb-stat-lbl">نرخ برد</div></div>
+    </div>
     <div class="level-btns">
       <button class="level-btn easy ${currentLevel==='easy'?'selected':''}" onclick="selectLevel('easy', this)">😊 آسون</button>
       <button class="level-btn medium ${currentLevel==='medium'?'selected':''}" onclick="selectLevel('medium', this)">😤 متوسط</button>
       <button class="level-btn hard ${currentLevel==='hard'?'selected':''}" onclick="selectLevel('hard', this)">💀 سخت</button>
     </div>
     <button class="btn ${winner === 'ai' ? 'red' : ''}" onclick="startGame()">دوباره بازی کن</button>
+    <button class="btn-lb" onclick="showLeaderboard()">🏆 تاریخچه کامل</button>
   `;
   overlay.classList.remove('hidden');
 }
