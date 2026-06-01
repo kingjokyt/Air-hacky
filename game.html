@@ -162,13 +162,18 @@ const WINNING_SCORE = 7;
 const MALLET_R = 26;
 const PUCK_R = 18;
 const GOAL_W = 120;
+const gx1 = (W - GOAL_W) / 2;
+const gx2 = gx1 + GOAL_W;
 
 // سطح بازی
 let currentLevel = 'easy';
 const LEVELS = {
-  easy:   { speed: 3.5,  predFrames: 4,  errorX: 60, errorY: 40, reactionDelay: 0.4 },
-  medium: { speed: 5.5,  predFrames: 8,  errorX: 25, errorY: 15, reactionDelay: 0.15 },
-  hard:   { speed: 8.5,  predFrames: 14, errorX: 5,  errorY: 3,  reactionDelay: 0 },
+  // آسون: خیلی کنده، وایمیسته وسط زمین خودش، اصلاً دفاع نمیکنه
+  easy:   { speed: 1.8, predFrames: 0, errorX: 0, errorY: 0 },
+  // متوسط: کند، فقط دفاع میکنه، تهاجم نداره
+  medium: { speed: 3.2, predFrames: 0, errorX: 0, errorY: 0 },
+  // سخت: سریع، پیش‌بینی میکنه، تهاجمیه
+  hard:   { speed: 9.0, predFrames: 12, errorX: 0, errorY: 0 },
 };
 
 function selectLevel(level, btn) {
@@ -235,9 +240,6 @@ function update(dt) {
   if (puck.x - PUCK_R < 0) { puck.x = PUCK_R; puck.vx = Math.abs(puck.vx); }
   if (puck.x + PUCK_R > W) { puck.x = W - PUCK_R; puck.vx = -Math.abs(puck.vx); }
 
-  const gx1 = (W - GOAL_W) / 2;
-  const gx2 = gx1 + GOAL_W;
-
   // گل بالا = بازیکن امتیاز گرفت
   if (puck.y - PUCK_R < 0) {
     if (puck.x > gx1 && puck.x < gx2) {
@@ -294,32 +296,32 @@ function updateAI(dt) {
   const lvl = LEVELS[currentLevel];
   const aiZone = H / 2;
 
-  // خطای تصادفی برای سطوح آسان‌تر
-  const errX = (Math.random() - 0.5) * lvl.errorX;
-  const errY = (Math.random() - 0.5) * lvl.errorY;
+  if (currentLevel === 'easy') {
+    // آسون: وسط نیمه خودش وایمیسته، اصلاً حرکت نمیکنه به سمت توپ
+    // فقط یکم X رو تنظیم میکنه که کاملاً بی‌حرکت نباشه
+    targetAiX = W / 2;
+    targetAiY = MALLET_R + 60; // از دروازه دور میمونه
 
-  let predX = puck.x + puck.vx * lvl.predFrames + errX;
-  let predY = puck.y + puck.vy * lvl.predFrames + errY;
+  } else if (currentLevel === 'medium') {
+    // متوسط: فقط دفاع - جلوی دروازه میمونه و X رو تنظیم میکنه
+    // تهاجم نداره، فقط از گل خوردن جلوگیری میکنه
+    targetAiY = MALLET_R + 15; // نزدیک دروازه خودش
+    // X رو با توپ هماهنگ میکنه ولی کنده
+    targetAiX = puck.x;
 
-  if (puck.vy < 0 && puck.y < aiZone) {
-    // توپ داره میاد طرف هوش مصنوعی
-    if (currentLevel === 'hard') {
-      // حالت سخت: تهاجمی، سعی میکنه زاویه بزنه
+  } else {
+    // سخت: پیش‌بینی + تهاجم
+    let predX = puck.x + puck.vx * lvl.predFrames;
+    let predY = puck.y + puck.vy * lvl.predFrames;
+
+    if (puck.vy < 0 && puck.y < aiZone) {
+      // توپ داره میاد - تهاجمی بره جلو
       targetAiX = predX;
       targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R));
     } else {
-      targetAiX = predX;
-      targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R * 2));
-    }
-  } else {
-    // دفاعی - برو جلوی دروازه
-    if (currentLevel === 'easy') {
-      // آسون: دیر واکنش نشون میده
-      targetAiX = W / 2 + errX;
-      targetAiY = MALLET_R + 30;
-    } else {
-      targetAiX = Math.max(W/2 - GOAL_W/2 + MALLET_R, Math.min(W/2 + GOAL_W/2 - MALLET_R, puck.x)) + errX;
-      targetAiY = MALLET_R + 15;
+      // دفاع هوشمند
+      targetAiX = Math.max(gx1 + MALLET_R, Math.min(gx2 - MALLET_R, puck.x));
+      targetAiY = MALLET_R + 10;
     }
   }
 
@@ -419,9 +421,6 @@ function draw() {
   ctx.beginPath();
   ctx.arc(W/2, H/2, 50, 0, Math.PI*2);
   ctx.stroke();
-
-  const gx1 = (W - GOAL_W) / 2;
-  const gx2 = gx1 + GOAL_W;
 
   // دروازه بالا
   ctx.fillStyle = 'rgba(255,68,102,0.12)';
