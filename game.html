@@ -177,6 +177,31 @@
   .lb-row .score { opacity: 0.7; }
   .lb-row .level-tag { font-size: 10px; opacity: 0.5; }
   .lb-empty { opacity: 0.4; font-size: 14px; margin-top: 30px; }
+  .pause-menu {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    backdrop-filter: blur(10px);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .pause-menu.hidden { display: none; }
+  .pause-menu {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(10px);
+    z-index: 15;
+  }
+  .pause-menu.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -206,6 +231,20 @@
       </div>
       <button class="btn" onclick="startGame()">شروع بازی</button>
       <button class="btn-lb" onclick="showLeaderboard()">🏆 لیدربرد</button>
+    </div>
+
+    <div id="pause-menu" class="pause-menu hidden">
+      <div class="overlay-title">⏸ پاز</div>
+      <div class="overlay-sub">بازی متوقف شده</div>
+      <button class="btn" onclick="resumeGame()">▶️ ادامه بازی</button>
+      <button class="btn red" style="margin-top:10px" onclick="surrenderGame()">🏳️ تسلیم شدن</button>
+    </div>
+
+    <div id="pause-menu" class="pause-menu hidden">
+      <div class="overlay-title">⏸ پاز</div>
+      <div class="overlay-sub">بازی متوقف شد</div>
+      <button class="btn" onclick="resumeGame()">▶️ ادامه بازی</button>
+      <button class="btn red" style="margin-top:10px" onclick="surrenderGame()">🏳️ تسلیم شدن</button>
     </div>
 
     <div id="leaderboard-panel" class="lb-panel hidden">
@@ -335,6 +374,13 @@ let aiWillChase = false;
 
 let paused = false;
 
+// افکت نور دیوار
+let wallFlash = { left: 0, right: 0, top: 0, bottom: 0 }; // 0..1
+
+// بهبود مالت بازیکن: سرعت قبلی برای محاسبه ضربه
+let prevPlayerX = W/2, prevPlayerY = H - 90;
+let playerVelX = 0, playerVelY = 0;
+
 function selectLevel(level, btn) {
   currentLevel = level;
   document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
@@ -402,15 +448,45 @@ function togglePause() {
   paused = !paused;
   const btn = document.getElementById('pause-btn');
   btn.textContent = paused ? '▶️' : '⏸';
-  if (paused) {
-    // نشون بده پاز شده
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 28px Vazirmatn';
-    ctx.textAlign = 'center';
-    ctx.fillText('⏸ پاز', W/2, H/2);
-  }
+  document.getElementById('pause-menu').classList.toggle('hidden', !paused);
+}
+
+function resumeGame() {
+  paused = false;
+  document.getElementById('pause-btn').textContent = '⏸';
+  document.getElementById('pause-menu').classList.add('hidden');
+}
+
+function surrenderGame() {
+  document.getElementById('pause-menu').classList.add('hidden');
+  paused = false;
+  gameRunning = false;
+  // ثبت باخت
+  recordResult('ai', playerScore, WINNING_SCORE, currentLevel);
+  if (tg) tg.sendData(JSON.stringify({ playerScore, aiScore: WINNING_SCORE, winner: 'ai', level: currentLevel }));
+  const stats = loadStats();
+  const total = stats.wins + stats.losses;
+  const rate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+  const levelNames = { easy: 'آسون', medium: 'متوسط', hard: 'سخت' };
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = `
+    <div class="overlay-title">🏳️ تسلیم شدید!</div>
+    <div class="level-badge ${currentLevel}">${levelNames[currentLevel]}</div>
+    <div class="overlay-sub">نتیجه: ${playerScore} - ${aiScore}</div>
+    <div class="lb-stats-grid" style="width:90%;margin:10px 0">
+      <div class="lb-stat-box"><div class="lb-stat-val win">${stats.wins}</div><div class="lb-stat-lbl">کل برد</div></div>
+      <div class="lb-stat-box"><div class="lb-stat-val lose">${stats.losses}</div><div class="lb-stat-lbl">کل باخت</div></div>
+      <div class="lb-stat-box"><div class="lb-stat-val rate">${rate}%</div><div class="lb-stat-lbl">نرخ برد</div></div>
+    </div>
+    <div class="level-btns">
+      <button class="level-btn easy ${currentLevel==='easy'?'selected':''}" onclick="selectLevel('easy', this)">😊 آسون</button>
+      <button class="level-btn medium ${currentLevel==='medium'?'selected':''}" onclick="selectLevel('medium', this)">😤 متوسط</button>
+      <button class="level-btn hard ${currentLevel==='hard'?'selected':''}" onclick="selectLevel('hard', this)">💀 سخت</button>
+    </div>
+    <button class="btn red" onclick="startGame()">دوباره بازی کن</button>
+    <button class="btn-lb" onclick="showLeaderboard()">🏆 تاریخچه کامل</button>
+  `;
+  overlay.classList.remove('hidden');
 }
 
 function update(dt) {
@@ -420,8 +496,8 @@ function update(dt) {
   puck.y += puck.vy * dt;
 
   // دیوار چپ و راست
-  if (puck.x - PUCK_R < 0) { puck.x = PUCK_R; puck.vx = Math.abs(puck.vx); }
-  if (puck.x + PUCK_R > W) { puck.x = W - PUCK_R; puck.vx = -Math.abs(puck.vx); }
+  if (puck.x - PUCK_R < 0) { puck.x = PUCK_R; puck.vx = Math.abs(puck.vx); wallFlash.left = 1; }
+  if (puck.x + PUCK_R > W) { puck.x = W - PUCK_R; puck.vx = -Math.abs(puck.vx); wallFlash.right = 1; }
 
   // گل بالا = بازیکن امتیاز گرفت
   if (puck.y - PUCK_R < 0) {
@@ -431,6 +507,7 @@ function update(dt) {
     } else {
       puck.y = PUCK_R;
       puck.vy = Math.abs(puck.vy);
+      wallFlash.top = 1;
     }
   }
 
@@ -442,12 +519,26 @@ function update(dt) {
     } else {
       puck.y = H - PUCK_R;
       puck.vy = -Math.abs(puck.vy);
+      wallFlash.bottom = 1;
     }
   }
 
-  collideMallet(player);
-  collideMallet(ai);
+  // محاسبه سرعت مالت بازیکن
+  playerVelX = player.x - prevPlayerX;
+  playerVelY = player.y - prevPlayerY;
+  prevPlayerX = player.x;
+  prevPlayerY = player.y;
+
+  collideMallet(player, playerVelX, playerVelY);
+  collideMallet(ai, 0, 0);
   updateAI(dt);
+
+  // fade افکت دیوار
+  const fadeSpeed = 0.15;
+  wallFlash.left   = Math.max(0, wallFlash.left   - fadeSpeed * dt);
+  wallFlash.right  = Math.max(0, wallFlash.right  - fadeSpeed * dt);
+  wallFlash.top    = Math.max(0, wallFlash.top    - fadeSpeed * dt);
+  wallFlash.bottom = Math.max(0, wallFlash.bottom - fadeSpeed * dt);
 
   // تشخیص گیر کردن توپ - اگه ۳ ثانیه تکون نخورد ریست کن
   const moved = Math.hypot(puck.x - lastPuckX, puck.y - lastPuckY);
@@ -492,7 +583,7 @@ function update(dt) {
   }
 }
 
-function collideMallet(mallet) {
+function collideMallet(mallet, malletVelX, malletVelY) {
   const dx = puck.x - mallet.x;
   const dy = puck.y - mallet.y;
   const dist = Math.hypot(dx, dy);
@@ -501,17 +592,40 @@ function collideMallet(mallet) {
     const nx = dx / dist;
     const ny = dy / dist;
     // توپ رو کاملاً بیرون از مالت بذار
-    puck.x = mallet.x + nx * (minDist + 1);
-    puck.y = mallet.y + ny * (minDist + 1);
+    puck.x = mallet.x + nx * (minDist + 2);
+    puck.y = mallet.y + ny * (minDist + 2);
     const dot = puck.vx * nx + puck.vy * ny;
-    // فقط اگه داره به هم نزدیک میشن برگردون
     if (dot < 0) {
       puck.vx -= 2 * dot * nx;
       puck.vy -= 2 * dot * ny;
-      puck.vx *= 1.1;
-      puck.vy *= 1.1;
     }
-    // مطمئن بشیم توپ از دیوار هم بیرونه
+    // سرعت مالت رو به توپ اضافه کن
+    // برای بازیکن: ضریب بالاتر = ضربه قوی‌تر
+    const isPlayer = mallet === player;
+    const velBoost = isPlayer ? 1.2 : 0.5;
+    puck.vx += malletVelX * velBoost;
+    puck.vy += malletVelY * velBoost;
+
+    // اگه بازیکنه و مالت داره حرکت میکنه، توپ رو تو جهت حرکت پرتاب کن
+    if (isPlayer) {
+      const malletSpeed = Math.hypot(malletVelX, malletVelY);
+      if (malletSpeed > 1.5) {
+        // جهت ضربه رو با جهت حرکت مالت ترکیب کن
+        const mvx = malletVelX / malletSpeed;
+        const mvy = malletVelY / malletSpeed;
+        const currentSpeed = Math.hypot(puck.vx, puck.vy);
+        const newSpeed = Math.max(currentSpeed, malletSpeed * 3 + 5);
+        puck.vx = (nx * 0.4 + mvx * 0.6) * newSpeed;
+        puck.vy = (ny * 0.4 + mvy * 0.6) * newSpeed;
+      }
+    }
+
+    // حداقل سرعت بعد از برخورد
+    const spd = Math.hypot(puck.vx, puck.vy);
+    if (spd < 5) {
+      puck.vx = nx * 5;
+      puck.vy = ny * 5;
+    }
     puck.x = Math.max(PUCK_R + 1, Math.min(W - PUCK_R - 1, puck.x));
     puck.y = Math.max(PUCK_R + 1, Math.min(H - PUCK_R - 1, puck.y));
   }
@@ -520,30 +634,19 @@ function collideMallet(mallet) {
 function updateAI(dt) {
   const lvl = LEVELS[currentLevel];
   const aiZone = H / 2;
-  const puckComingToAI = puck.vy < 0; // توپ داره میره بالا (سمت AI)
-  const puckCrossedLine = puck.y < aiZone; // توپ از خط وسط رد شده
+  const puckInAiHalf = puck.y < aiZone;
 
-  if (aiWillChase && puckComingToAI) {
-    // این راند AI تصمیم گرفته دنبال توپ بره
-    if (lvl.crossLine && puckCrossedLine) {
-      // توپ از خط رد شده - بره سمتش
-      let predX = puck.x + puck.vx * lvl.predFrames;
-      let predY = puck.y + puck.vy * lvl.predFrames;
-      targetAiX = predX;
-      targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY));
-    } else if (!lvl.crossLine && puckCrossedLine) {
-      // آسون/متوسط - از خط رد شده ولی نمیره دنبالش، فقط X رو تنظیم میکنه
-      targetAiX = puck.x;
-      targetAiY = MALLET_R + 25;
-    } else if (puckCrossedLine) {
-      // هنوز از خط رد نشده
-      targetAiX = puck.x;
-      targetAiY = MALLET_R + 25;
-    }
+  if (aiWillChase && puckInAiHalf) {
+    // توپ اومده تو زمین AI و این راند تصمیم گرفته بره دنبالش
+    let predX = puck.x + puck.vx * lvl.predFrames;
+    let predY = puck.y + puck.vy * lvl.predFrames;
+    targetAiX = predX;
+    targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY));
   } else {
-    // دفاع - جلوی دروازه بمون
-    targetAiX = Math.max(gx1 + MALLET_R, Math.min(gx2 - MALLET_R, puck.x));
-    targetAiY = MALLET_R + 20;
+    // توپ تو زمین بازیکنه یا این راند chase نمیکنه
+    // برگرد وسط زمین خودت
+    targetAiX = W / 2;
+    targetAiY = aiZone / 2;
   }
 
   targetAiX = Math.max(MALLET_R, Math.min(W - MALLET_R, targetAiX));
@@ -641,6 +744,37 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#0f0f2a';
   ctx.fillRect(0, 0, W, H);
+
+  // افکت نور دیوار
+  const wallAlpha = 0.55;
+  if (wallFlash.left > 0) {
+    const g = ctx.createLinearGradient(0, 0, 40, 0);
+    g.addColorStop(0, `rgba(0,245,255,${wallFlash.left * wallAlpha})`);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 40, H);
+  }
+  if (wallFlash.right > 0) {
+    const g = ctx.createLinearGradient(W, 0, W-40, 0);
+    g.addColorStop(0, `rgba(0,245,255,${wallFlash.right * wallAlpha})`);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.fillRect(W-40, 0, 40, H);
+  }
+  if (wallFlash.top > 0) {
+    const g = ctx.createLinearGradient(0, 0, 0, 40);
+    g.addColorStop(0, `rgba(255,68,102,${wallFlash.top * wallAlpha})`);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, 40);
+  }
+  if (wallFlash.bottom > 0) {
+    const g = ctx.createLinearGradient(0, H, 0, H-40);
+    g.addColorStop(0, `rgba(0,245,255,${wallFlash.bottom * wallAlpha})`);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, H-40, W, 40);
+  }
 
   // خط میانی
   ctx.strokeStyle = 'rgba(255,255,255,0.08)';
