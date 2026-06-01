@@ -7,9 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&display=swap');
-
   * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
-
   body {
     background: #0a0a1a;
     font-family: 'Vazirmatn', sans-serif;
@@ -21,7 +19,6 @@
     overflow: hidden;
     color: #fff;
   }
-
   #game-container {
     display: flex;
     flex-direction: column;
@@ -31,7 +28,6 @@
     padding: 10px;
     gap: 8px;
   }
-
   .scoreboard {
     display: flex;
     justify-content: space-between;
@@ -41,48 +37,21 @@
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 16px;
     padding: 10px 20px;
-    backdrop-filter: blur(10px);
   }
-
-  .score-box {
-    text-align: center;
-  }
-
-  .score-label {
-    font-size: 11px;
-    opacity: 0.6;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  .score-value {
-    font-size: 36px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
+  .score-box { text-align: center; }
+  .score-label { font-size: 11px; opacity: 0.6; letter-spacing: 2px; text-transform: uppercase; }
+  .score-value { font-size: 36px; font-weight: 900; line-height: 1; }
   .score-box.player .score-value { color: #00f5ff; }
   .score-box.ai .score-value { color: #ff4466; }
-
-  .score-divider {
-    font-size: 24px;
-    opacity: 0.3;
-  }
-
+  .score-divider { font-size: 24px; opacity: 0.3; }
   #canvas-wrapper {
     position: relative;
     width: 100%;
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 0 40px rgba(0, 245, 255, 0.15), 0 0 80px rgba(255, 68, 102, 0.1);
+    box-shadow: 0 0 40px rgba(0,245,255,0.15), 0 0 80px rgba(255,68,102,0.1);
   }
-
-  #gameCanvas {
-    display: block;
-    width: 100%;
-    cursor: none;
-  }
-
+  #gameCanvas { display: block; width: 100%; cursor: none; }
   #overlay {
     position: absolute;
     inset: 0;
@@ -95,22 +64,9 @@
     transition: opacity 0.3s;
     z-index: 10;
   }
-
   #overlay.hidden { opacity: 0; pointer-events: none; }
-
-  .overlay-title {
-    font-size: 28px;
-    font-weight: 900;
-    margin-bottom: 8px;
-  }
-
-  .overlay-sub {
-    font-size: 14px;
-    opacity: 0.6;
-    margin-bottom: 24px;
-    text-align: center;
-  }
-
+  .overlay-title { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+  .overlay-sub { font-size: 14px; opacity: 0.6; margin-bottom: 24px; text-align: center; }
   .btn {
     background: linear-gradient(135deg, #00f5ff, #0088ff);
     color: #000;
@@ -121,39 +77,17 @@
     font-family: 'Vazirmatn', sans-serif;
     border-radius: 50px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    box-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+    box-shadow: 0 0 20px rgba(0,245,255,0.4);
   }
-
-  .btn:active { transform: scale(0.95); }
-  .btn.red {
-    background: linear-gradient(135deg, #ff4466, #ff0055);
-    box-shadow: 0 0 20px rgba(255, 68, 102, 0.4);
-  }
-
-  .goal-flash {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0;
-    z-index: 5;
-    transition: opacity 0.1s;
-  }
-
+  .btn.red { background: linear-gradient(135deg, #ff4466, #ff0055); box-shadow: 0 0 20px rgba(255,68,102,0.4); }
+  .goal-flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; transition: opacity 0.1s; }
   .goal-flash.player { background: radial-gradient(ellipse, rgba(0,245,255,0.3) 0%, transparent 70%); }
   .goal-flash.ai { background: radial-gradient(ellipse, rgba(255,68,102,0.3) 0%, transparent 70%); }
   .goal-flash.show { opacity: 1; }
-
-  .controls-hint {
-    font-size: 11px;
-    opacity: 0.4;
-    text-align: center;
-    letter-spacing: 1px;
-  }
+  .controls-hint { font-size: 11px; opacity: 0.4; text-align: center; letter-spacing: 1px; }
 </style>
 </head>
 <body>
-
 <div id="game-container">
   <div class="scoreboard">
     <div class="score-box ai">
@@ -166,80 +100,69 @@
       <div class="score-label">شما 🧑</div>
     </div>
   </div>
-
   <div id="canvas-wrapper">
     <canvas id="gameCanvas"></canvas>
     <div class="goal-flash player" id="player-flash"></div>
     <div class="goal-flash ai" id="ai-flash"></div>
-
     <div id="overlay">
       <div class="overlay-title">🏒 ایر هاکی</div>
       <div class="overlay-sub">شما پایین هستید<br>هوش مصنوعی بالا</div>
       <button class="btn" onclick="startGame()">شروع بازی</button>
     </div>
   </div>
-
   <div class="controls-hint">لمس کنید و بکشید تا مالت حرکت کند</div>
 </div>
 
 <script>
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-}
+if (tg) { tg.ready(); tg.expand(); }
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// ابعاد بازی
-const W = 360;
-const H = 540;
+const W = 360, H = 540;
 canvas.width = W;
 canvas.height = H;
 
-// تنظیمات
 const WINNING_SCORE = 7;
 const MALLET_R = 26;
 const PUCK_R = 18;
 const GOAL_W = 120;
 
-// رنگ‌ها
-const COLORS = {
-  bg: '#0d0d24',
-  field: '#0f0f2a',
-  line: 'rgba(255,255,255,0.08)',
-  centerCircle: 'rgba(255,255,255,0.06)',
-  playerMallet: '#00f5ff',
-  aiMallet: '#ff4466',
-  puck: '#ffffff',
-  goalPlayer: 'rgba(0,245,255,0.4)',
-  goalAi: 'rgba(255,68,102,0.4)',
-  goalLine: 'rgba(255,255,255,0.15)',
-  glowPlayer: '#00f5ff',
-  glowAi: '#ff4466',
-};
+// امتیازها رو جدا از state نگه میداریم
+let playerScore = 0;
+let aiScore = 0;
 
-let state = {};
+let puck, player, ai, targetAiX, targetAiY;
 let animId = null;
 let gameRunning = false;
 let lastTime = 0;
+let scoring = false; // جلوگیری از گل چندگانه
 
-function initState() {
-  return {
-    puck: { x: W/2, y: H/2, vx: (Math.random()-0.5)*6, vy: 4 },
-    player: { x: W/2, y: H - 90 },
-    ai: { x: W/2, y: 90 },
-    playerScore: 0,
-    aiScore: 0,
-    targetAiX: W/2,
-    targetAiY: 90,
+function resetPuck(dir) {
+  puck = { 
+    x: W/2, y: H/2, 
+    vx: (Math.random() - 0.5) * 6, 
+    vy: dir === 'down' ? 5 : -5 
   };
+}
+
+function initPositions() {
+  player = { x: W/2, y: H - 90 };
+  ai = { x: W/2, y: 90 };
+  targetAiX = W/2;
+  targetAiY = 90;
+  resetPuck('down');
 }
 
 function startGame() {
   document.getElementById('overlay').classList.add('hidden');
-  state = initState();
+  playerScore = 0;
+  aiScore = 0;
+  document.getElementById('player-score').textContent = '0';
+  document.getElementById('ai-score').textContent = '0';
+  scoring = false;
+  initPositions();
   gameRunning = true;
   lastTime = performance.now();
   if (animId) cancelAnimationFrame(animId);
@@ -255,95 +178,89 @@ function loop(ts) {
 }
 
 function update(dt) {
-  const p = state.puck;
+  if (scoring) return; // اگه گل خورده صبر کن
 
-  // حرکت توپ
-  p.x += p.vx * dt;
-  p.y += p.vy * dt;
+  puck.x += puck.vx * dt;
+  puck.y += puck.vy * dt;
 
-  // برخورد با دیوارها
-  if (p.x - PUCK_R < 0) { p.x = PUCK_R; p.vx = Math.abs(p.vx); }
-  if (p.x + PUCK_R > W) { p.x = W - PUCK_R; p.vx = -Math.abs(p.vx); }
+  // دیوار چپ و راست
+  if (puck.x - PUCK_R < 0) { puck.x = PUCK_R; puck.vx = Math.abs(puck.vx); }
+  if (puck.x + PUCK_R > W) { puck.x = W - PUCK_R; puck.vx = -Math.abs(puck.vx); }
 
-  // گل پایین (بازیکن باخت)
-  const goalX1 = (W - GOAL_W) / 2;
-  const goalX2 = goalX1 + GOAL_W;
-  if (p.y + PUCK_R > H && p.x > goalX1 && p.x < goalX2) {
-    score('ai'); return;
+  const gx1 = (W - GOAL_W) / 2;
+  const gx2 = gx1 + GOAL_W;
+
+  // گل بالا = بازیکن امتیاز گرفت
+  if (puck.y - PUCK_R < 0) {
+    if (puck.x > gx1 && puck.x < gx2) {
+      doScore('player');
+    } else {
+      puck.y = PUCK_R;
+      puck.vy = Math.abs(puck.vy);
+    }
+    return;
   }
-  // گل بالا (بازیکن برد)
-  if (p.y - PUCK_R < 0 && p.x > goalX1 && p.x < goalX2) {
-    score('player'); return;
+
+  // گل پایین = هوش مصنوعی امتیاز گرفت
+  if (puck.y + PUCK_R > H) {
+    if (puck.x > gx1 && puck.x < gx2) {
+      doScore('ai');
+    } else {
+      puck.y = H - PUCK_R;
+      puck.vy = -Math.abs(puck.vy);
+    }
+    return;
   }
-  // برخورد با دیوار بالا/پایین (خارج از دروازه)
-  if (p.y - PUCK_R < 0) { p.y = PUCK_R; p.vy = Math.abs(p.vy); }
-  if (p.y + PUCK_R > H) { p.y = H - PUCK_R; p.vy = -Math.abs(p.vy); }
 
-  // برخورد با مالت بازیکن
-  collideMallet(state.player, COLORS.playerMallet);
-  // برخورد با مالت هوش مصنوعی
-  collideMallet(state.ai, COLORS.aiMallet);
-
-  // هوش مصنوعی
+  collideMallet(player);
+  collideMallet(ai);
   updateAI(dt);
 
-  // کاهش سرعت
   const MAX_SPEED = 18;
-  const speed = Math.hypot(p.vx, p.vy);
+  const speed = Math.hypot(puck.vx, puck.vy);
   if (speed > MAX_SPEED) {
-    p.vx = p.vx / speed * MAX_SPEED;
-    p.vy = p.vy / speed * MAX_SPEED;
+    puck.vx = puck.vx / speed * MAX_SPEED;
+    puck.vy = puck.vy / speed * MAX_SPEED;
   }
 }
 
-function collideMallet(mallet, color) {
-  const p = state.puck;
-  const dx = p.x - mallet.x;
-  const dy = p.y - mallet.y;
+function collideMallet(mallet) {
+  const dx = puck.x - mallet.x;
+  const dy = puck.y - mallet.y;
   const dist = Math.hypot(dx, dy);
   const minDist = MALLET_R + PUCK_R;
   if (dist < minDist && dist > 0) {
     const nx = dx / dist;
     const ny = dy / dist;
-    p.x = mallet.x + nx * minDist;
-    p.y = mallet.y + ny * minDist;
-    const dot = p.vx * nx + p.vy * ny;
-    p.vx -= 2 * dot * nx;
-    p.vy -= 2 * dot * ny;
-    const boost = 1.15;
-    p.vx *= boost;
-    p.vy *= boost;
+    puck.x = mallet.x + nx * minDist;
+    puck.y = mallet.y + ny * minDist;
+    const dot = puck.vx * nx + puck.vy * ny;
+    puck.vx -= 2 * dot * nx;
+    puck.vy -= 2 * dot * ny;
+    puck.vx *= 1.1;
+    puck.vy *= 1.1;
   }
 }
 
 function updateAI(dt) {
-  const p = state.puck;
-  const ai = state.ai;
-  
-  // پیش‌بینی موقعیت توپ
-  let predX = p.x + p.vx * 8;
-  let predY = p.y + p.vy * 8;
-  
-  // محدوده نیمه هوش مصنوعی
+  let predX = puck.x + puck.vx * 8;
+  let predY = puck.y + puck.vy * 8;
   const aiZone = H / 2;
-  
-  if (p.vy < 0 && p.y < aiZone) {
-    // توپ به سمت هوش مصنوعی میاد - تهاجمی
-    state.targetAiX = predX;
-    state.targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R * 2));
+
+  if (puck.vy < 0 && puck.y < aiZone) {
+    targetAiX = predX;
+    targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R * 2));
   } else {
-    // دفاعی - برو جلوی دروازه
-    state.targetAiX = W / 2;
-    state.targetAiY = MALLET_R + 20;
+    targetAiX = W / 2;
+    targetAiY = MALLET_R + 20;
   }
 
-  // محدود کردن به نیمه هوش مصنوعی
-  state.targetAiX = Math.max(MALLET_R, Math.min(W - MALLET_R, state.targetAiX));
-  state.targetAiY = Math.max(MALLET_R, Math.min(H/2 - MALLET_R, state.targetAiY));
+  targetAiX = Math.max(MALLET_R, Math.min(W - MALLET_R, targetAiX));
+  targetAiY = Math.max(MALLET_R, Math.min(H/2 - MALLET_R, targetAiY));
 
   const speed = 5.5 * dt;
-  const dxAi = state.targetAiX - ai.x;
-  const dyAi = state.targetAiY - ai.y;
+  const dxAi = targetAiX - ai.x;
+  const dyAi = targetAiY - ai.y;
   const dist = Math.hypot(dxAi, dyAi);
   if (dist > 1) {
     ai.x += (dxAi / dist) * Math.min(speed, dist);
@@ -351,30 +268,31 @@ function updateAI(dt) {
   }
 }
 
-function score(who) {
+function doScore(who) {
+  if (scoring) return;
+  scoring = true;
+
   if (who === 'player') {
-    state.playerScore++;
-    document.getElementById('player-score').textContent = state.playerScore;
+    playerScore++;
+    document.getElementById('player-score').textContent = playerScore;
     flashGoal('player');
   } else {
-    state.aiScore++;
-    document.getElementById('ai-score').textContent = state.aiScore;
+    aiScore++;
+    document.getElementById('ai-score').textContent = aiScore;
     flashGoal('ai');
   }
-  
-  if (state.playerScore >= WINNING_SCORE || state.aiScore >= WINNING_SCORE) {
-    endGame(who === 'player' ? 'player' : 'ai');
+
+  if (playerScore >= WINNING_SCORE || aiScore >= WINNING_SCORE) {
+    gameRunning = false;
+    setTimeout(() => endGame(who), 800);
     return;
   }
-  
-  // ریست توپ
+
+  // ریست بعد از گل
   setTimeout(() => {
-    state.puck = { 
-      x: W/2, y: H/2, 
-      vx: (Math.random()-0.5) * 6, 
-      vy: who === 'player' ? -4 : 4 
-    };
-  }, 600);
+    initPositions();
+    scoring = false;
+  }, 800);
 }
 
 function flashGoal(who) {
@@ -384,116 +302,86 @@ function flashGoal(who) {
 }
 
 function endGame(winner) {
-  gameRunning = false;
-  
-  // ارسال نتیجه به تلگرام
   if (tg) {
     tg.sendData(JSON.stringify({
-      playerScore: state.playerScore,
-      aiScore: state.aiScore,
-      winner: winner
+      playerScore, aiScore, winner
     }));
   }
-  
   const overlay = document.getElementById('overlay');
   overlay.innerHTML = `
     <div class="overlay-title">${winner === 'player' ? '🎉 بردید!' : '😔 باختید!'}</div>
-    <div class="overlay-sub">
-      نتیجه: ${state.playerScore} - ${state.aiScore}
-    </div>
-    <button class="btn ${winner === 'ai' ? 'red' : ''}" onclick="resetGame()">دوباره بازی کن</button>
+    <div class="overlay-sub">نتیجه: ${playerScore} - ${aiScore}</div>
+    <button class="btn ${winner === 'ai' ? 'red' : ''}" onclick="startGame()">دوباره بازی کن</button>
   `;
   overlay.classList.remove('hidden');
 }
 
-function resetGame() {
-  document.getElementById('player-score').textContent = '0';
-  document.getElementById('ai-score').textContent = '0';
-  startGame();
-}
-
-// ── رسم ──────────────────────────────────────────
+// ── رسم ──
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  
-  // زمینه
-  ctx.fillStyle = COLORS.field;
+  ctx.fillStyle = '#0f0f2a';
   ctx.fillRect(0, 0, W, H);
-  
+
   // خط میانی
-  ctx.strokeStyle = COLORS.line;
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
   ctx.lineWidth = 2;
   ctx.setLineDash([12, 8]);
   ctx.beginPath();
-  ctx.moveTo(0, H/2);
-  ctx.lineTo(W, H/2);
+  ctx.moveTo(0, H/2); ctx.lineTo(W, H/2);
   ctx.stroke();
   ctx.setLineDash([]);
-  
+
   // دایره مرکزی
-  ctx.strokeStyle = COLORS.centerCircle;
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(W/2, H/2, 50, 0, Math.PI*2);
   ctx.stroke();
-  
-  // دروازه‌ها
+
   const gx1 = (W - GOAL_W) / 2;
   const gx2 = gx1 + GOAL_W;
-  
-  // دروازه بالا (هوش مصنوعی)
+
+  // دروازه بالا
   ctx.fillStyle = 'rgba(255,68,102,0.12)';
   ctx.fillRect(gx1, 0, GOAL_W, 8);
-  ctx.strokeStyle = COLORS.aiMallet;
+  ctx.strokeStyle = '#ff4466';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(gx1, 0); ctx.lineTo(gx1, 16);
   ctx.moveTo(gx2, 0); ctx.lineTo(gx2, 16);
   ctx.stroke();
   ctx.strokeStyle = 'rgba(255,68,102,0.5)';
-  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(gx1, 0); ctx.lineTo(gx2, 0);
   ctx.stroke();
 
-  // دروازه پایین (بازیکن)
+  // دروازه پایین
   ctx.fillStyle = 'rgba(0,245,255,0.12)';
   ctx.fillRect(gx1, H-8, GOAL_W, 8);
-  ctx.strokeStyle = COLORS.playerMallet;
+  ctx.strokeStyle = '#00f5ff';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(gx1, H); ctx.lineTo(gx1, H-16);
   ctx.moveTo(gx2, H); ctx.lineTo(gx2, H-16);
   ctx.stroke();
   ctx.strokeStyle = 'rgba(0,245,255,0.5)';
-  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(gx1, H); ctx.lineTo(gx2, H);
   ctx.stroke();
-  
-  // مالت هوش مصنوعی
-  drawMallet(state.ai.x, state.ai.y, COLORS.aiMallet, '#ff0044');
-  
-  // مالت بازیکن
-  drawMallet(state.player.x, state.player.y, COLORS.playerMallet, '#00ccdd');
-  
-  // توپ
-  drawPuck(state.puck.x, state.puck.y);
+
+  drawMallet(ai.x, ai.y, '#ff4466', '#ff0044');
+  drawMallet(player.x, player.y, '#00f5ff', '#00ccdd');
+  drawPuck(puck.x, puck.y);
 }
 
 function drawMallet(x, y, color, inner) {
-  // سایه
   ctx.shadowColor = color;
   ctx.shadowBlur = 20;
-  
-  // حلقه بیرونی
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(x, y, MALLET_R, 0, Math.PI*2);
   ctx.stroke();
-  
-  // داخل
   const grad = ctx.createRadialGradient(x-4, y-4, 2, x, y, MALLET_R-4);
   grad.addColorStop(0, 'rgba(255,255,255,0.25)');
   grad.addColorStop(1, inner + 'aa');
@@ -501,41 +389,28 @@ function drawMallet(x, y, color, inner) {
   ctx.beginPath();
   ctx.arc(x, y, MALLET_R-3, 0, Math.PI*2);
   ctx.fill();
-  
-  // نقطه مرکزی
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(x, y, 5, 0, Math.PI*2);
   ctx.fill();
-  
   ctx.shadowBlur = 0;
 }
 
 function drawPuck(x, y) {
-  // سایه
   ctx.shadowColor = 'rgba(255,255,255,0.6)';
   ctx.shadowBlur = 15;
-  
   const grad = ctx.createRadialGradient(x-4, y-4, 1, x, y, PUCK_R);
   grad.addColorStop(0, '#ffffff');
   grad.addColorStop(0.5, '#cccccc');
   grad.addColorStop(1, '#888888');
-  
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(x, y, PUCK_R, 0, Math.PI*2);
   ctx.fill();
-  
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(x, y, PUCK_R, 0, Math.PI*2);
-  ctx.stroke();
-  
   ctx.shadowBlur = 0;
 }
 
-// ── کنترل لمس/موس ────────────────────────────────
+// ── کنترل لمس ──
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = W / rect.width;
@@ -551,18 +426,14 @@ function movePlayer(e) {
   if (!gameRunning) return;
   e.preventDefault();
   const pos = getPos(e);
-  // فقط نیمه پایین
-  const newY = Math.max(H/2 + MALLET_R, Math.min(H - MALLET_R, pos.y));
-  const newX = Math.max(MALLET_R, Math.min(W - MALLET_R, pos.x));
-  state.player.x = newX;
-  state.player.y = newY;
+  player.x = Math.max(MALLET_R, Math.min(W - MALLET_R, pos.x));
+  player.y = Math.max(H/2 + MALLET_R, Math.min(H - MALLET_R, pos.y));
 }
 
 canvas.addEventListener('mousemove', movePlayer);
 canvas.addEventListener('touchmove', movePlayer, { passive: false });
 canvas.addEventListener('touchstart', movePlayer, { passive: false });
 
-// رسم اولیه
 draw();
 </script>
 </body>
