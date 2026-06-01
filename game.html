@@ -66,7 +66,7 @@
   }
   #overlay.hidden { opacity: 0; pointer-events: none; }
   .overlay-title { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
-  .overlay-sub { font-size: 14px; opacity: 0.6; margin-bottom: 24px; text-align: center; }
+  .overlay-sub { font-size: 14px; opacity: 0.6; margin-bottom: 20px; text-align: center; }
   .btn {
     background: linear-gradient(135deg, #00f5ff, #0088ff);
     color: #000;
@@ -80,6 +80,35 @@
     box-shadow: 0 0 20px rgba(0,245,255,0.4);
   }
   .btn.red { background: linear-gradient(135deg, #ff4466, #ff0055); box-shadow: 0 0 20px rgba(255,68,102,0.4); }
+  .level-btns { display: flex; gap: 10px; margin-bottom: 8px; }
+  .level-btn {
+    border: 2px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Vazirmatn', sans-serif;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .level-btn.easy { border-color: #00ff88; color: #00ff88; }
+  .level-btn.medium { border-color: #ffcc00; color: #ffcc00; }
+  .level-btn.hard { border-color: #ff4466; color: #ff4466; }
+  .level-btn.selected.easy { background: #00ff88; color: #000; box-shadow: 0 0 15px rgba(0,255,136,0.4); }
+  .level-btn.selected.medium { background: #ffcc00; color: #000; box-shadow: 0 0 15px rgba(255,204,0,0.4); }
+  .level-btn.selected.hard { background: #ff4466; color: #000; box-shadow: 0 0 15px rgba(255,68,102,0.4); }
+  .level-badge {
+    font-size: 12px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .level-badge.easy { background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid #00ff88; }
+  .level-badge.medium { background: rgba(255,204,0,0.15); color: #ffcc00; border: 1px solid #ffcc00; }
+  .level-badge.hard { background: rgba(255,68,102,0.15); color: #ff4466; border: 1px solid #ff4466; }
   .goal-flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; transition: opacity 0.1s; }
   .goal-flash.player { background: radial-gradient(ellipse, rgba(0,245,255,0.3) 0%, transparent 70%); }
   .goal-flash.ai { background: radial-gradient(ellipse, rgba(255,68,102,0.3) 0%, transparent 70%); }
@@ -107,6 +136,11 @@
     <div id="overlay">
       <div class="overlay-title">🏒 ایر هاکی</div>
       <div class="overlay-sub">شما پایین هستید<br>هوش مصنوعی بالا</div>
+      <div class="level-btns">
+        <button class="level-btn easy selected" onclick="selectLevel('easy', this)">😊 آسون</button>
+        <button class="level-btn medium" onclick="selectLevel('medium', this)">😤 متوسط</button>
+        <button class="level-btn hard" onclick="selectLevel('hard', this)">💀 سخت</button>
+      </div>
       <button class="btn" onclick="startGame()">شروع بازی</button>
     </div>
   </div>
@@ -128,6 +162,20 @@ const WINNING_SCORE = 7;
 const MALLET_R = 26;
 const PUCK_R = 18;
 const GOAL_W = 120;
+
+// سطح بازی
+let currentLevel = 'easy';
+const LEVELS = {
+  easy:   { speed: 3.5,  predFrames: 4,  errorX: 60, errorY: 40, reactionDelay: 0.4 },
+  medium: { speed: 5.5,  predFrames: 8,  errorX: 25, errorY: 15, reactionDelay: 0.15 },
+  hard:   { speed: 8.5,  predFrames: 14, errorX: 5,  errorY: 3,  reactionDelay: 0 },
+};
+
+function selectLevel(level, btn) {
+  currentLevel = level;
+  document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
 
 // امتیازها رو جدا از state نگه میداریم
 let playerScore = 0;
@@ -243,22 +291,42 @@ function collideMallet(mallet) {
 }
 
 function updateAI(dt) {
-  let predX = puck.x + puck.vx * 8;
-  let predY = puck.y + puck.vy * 8;
+  const lvl = LEVELS[currentLevel];
   const aiZone = H / 2;
 
+  // خطای تصادفی برای سطوح آسان‌تر
+  const errX = (Math.random() - 0.5) * lvl.errorX;
+  const errY = (Math.random() - 0.5) * lvl.errorY;
+
+  let predX = puck.x + puck.vx * lvl.predFrames + errX;
+  let predY = puck.y + puck.vy * lvl.predFrames + errY;
+
   if (puck.vy < 0 && puck.y < aiZone) {
-    targetAiX = predX;
-    targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R * 2));
+    // توپ داره میاد طرف هوش مصنوعی
+    if (currentLevel === 'hard') {
+      // حالت سخت: تهاجمی، سعی میکنه زاویه بزنه
+      targetAiX = predX;
+      targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R));
+    } else {
+      targetAiX = predX;
+      targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R * 2));
+    }
   } else {
-    targetAiX = W / 2;
-    targetAiY = MALLET_R + 20;
+    // دفاعی - برو جلوی دروازه
+    if (currentLevel === 'easy') {
+      // آسون: دیر واکنش نشون میده
+      targetAiX = W / 2 + errX;
+      targetAiY = MALLET_R + 30;
+    } else {
+      targetAiX = Math.max(W/2 - GOAL_W/2 + MALLET_R, Math.min(W/2 + GOAL_W/2 - MALLET_R, puck.x)) + errX;
+      targetAiY = MALLET_R + 15;
+    }
   }
 
   targetAiX = Math.max(MALLET_R, Math.min(W - MALLET_R, targetAiX));
   targetAiY = Math.max(MALLET_R, Math.min(H/2 - MALLET_R, targetAiY));
 
-  const speed = 5.5 * dt;
+  const speed = lvl.speed * dt;
   const dxAi = targetAiX - ai.x;
   const dyAi = targetAiY - ai.y;
   const dist = Math.hypot(dxAi, dyAi);
@@ -313,10 +381,18 @@ function endGame(winner) {
       playerScore, aiScore, winner
     }));
   }
+  const levelNames = { easy: 'آسون', medium: 'متوسط', hard: 'سخت' };
+  const levelClass = currentLevel;
   const overlay = document.getElementById('overlay');
   overlay.innerHTML = `
     <div class="overlay-title">${winner === 'player' ? '🎉 بردید!' : '😔 باختید!'}</div>
+    <div class="level-badge ${levelClass}">${levelNames[currentLevel]}</div>
     <div class="overlay-sub">نتیجه: ${playerScore} - ${aiScore}</div>
+    <div class="level-btns">
+      <button class="level-btn easy ${currentLevel==='easy'?'selected':''}" onclick="selectLevel('easy', this)">😊 آسون</button>
+      <button class="level-btn medium ${currentLevel==='medium'?'selected':''}" onclick="selectLevel('medium', this)">😤 متوسط</button>
+      <button class="level-btn hard ${currentLevel==='hard'?'selected':''}" onclick="selectLevel('hard', this)">💀 سخت</button>
+    </div>
     <button class="btn ${winner === 'ai' ? 'red' : ''}" onclick="startGame()">دوباره بازی کن</button>
   `;
   overlay.classList.remove('hidden');
