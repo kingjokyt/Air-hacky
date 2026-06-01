@@ -215,7 +215,19 @@
       <button class="btn-lb" onclick="hideLeaderboard()">✕ بستن</button>
     </div>
   </div>
-  <div class="controls-hint">لمس کنید و بکشید تا مالت حرکت کند</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+    <div class="controls-hint">لمس کنید و بکشید</div>
+    <button id="pause-btn" onclick="togglePause()" style="
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.15);
+      color:#fff;
+      width:38px;height:38px;
+      border-radius:50%;
+      font-size:16px;
+      cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    ">⏸</button>
+  </div>
 </div>
 
 <script>
@@ -311,14 +323,17 @@ const gx2 = gx1 + GOAL_W;
 
 // سطح بازی
 let currentLevel = 'easy';
+// احتمال اینکه AI بره سمت توپ (0 تا 1)
 const LEVELS = {
-  // آسون: خیلی کنده، وایمیسته وسط زمین خودش، اصلاً دفاع نمیکنه
-  easy:   { speed: 1.8, predFrames: 0, errorX: 0, errorY: 0 },
-  // متوسط: کند، فقط دفاع میکنه، تهاجم نداره
-  medium: { speed: 3.2, predFrames: 0, errorX: 0, errorY: 0 },
-  // سخت: سریع، پیش‌بینی میکنه، تهاجمیه
-  hard:   { speed: 9.0, predFrames: 12, errorX: 0, errorY: 0 },
+  easy:   { speed: 2.2, chaseChance: 0.3, crossLine: false, predFrames: 0 },
+  medium: { speed: 3.5, chaseChance: 0.65, crossLine: true,  predFrames: 4  },
+  hard:   { speed: 9.0, chaseChance: 1.0, crossLine: true,  predFrames: 12 },
 };
+
+// تصمیم AI برای هر گل - آیا این دفعه دنبال توپ بره؟
+let aiWillChase = false;
+
+let paused = false;
 
 function selectLevel(level, btn) {
   currentLevel = level;
@@ -344,6 +359,9 @@ function resetPuck(dir) {
     vx: (Math.random() - 0.5) * 6, 
     vy: dir === 'down' ? 5 : -5 
   };
+  // تصمیم بگیر این راند AI دنبال توپ میره یا نه
+  const lvl = LEVELS[currentLevel];
+  aiWillChase = Math.random() < lvl.chaseChance;
 }
 
 function initPositions() {
@@ -361,6 +379,9 @@ function startGame() {
   document.getElementById('player-score').textContent = '0';
   document.getElementById('ai-score').textContent = '0';
   scoring = false;
+  paused = false;
+  const pb = document.getElementById('pause-btn');
+  if (pb) pb.textContent = '⏸';
   initPositions();
   gameRunning = true;
   lastTime = performance.now();
@@ -371,9 +392,25 @@ function startGame() {
 function loop(ts) {
   const dt = Math.min((ts - lastTime) / 16.67, 3);
   lastTime = ts;
-  update(dt);
+  if (!paused) update(dt);
   draw();
   if (gameRunning) animId = requestAnimationFrame(loop);
+}
+
+function togglePause() {
+  if (!gameRunning) return;
+  paused = !paused;
+  const btn = document.getElementById('pause-btn');
+  btn.textContent = paused ? '▶️' : '⏸';
+  if (paused) {
+    // نشون بده پاز شده
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px Vazirmatn';
+    ctx.textAlign = 'center';
+    ctx.fillText('⏸ پاز', W/2, H/2);
+  }
 }
 
 function update(dt) {
@@ -483,38 +520,34 @@ function collideMallet(mallet) {
 function updateAI(dt) {
   const lvl = LEVELS[currentLevel];
   const aiZone = H / 2;
+  const puckComingToAI = puck.vy < 0; // توپ داره میره بالا (سمت AI)
+  const puckCrossedLine = puck.y < aiZone; // توپ از خط وسط رد شده
 
-  if (currentLevel === 'easy') {
-    // آسون: وسط نیمه خودش وایمیسته، اصلاً حرکت نمیکنه به سمت توپ
-    // فقط یکم X رو تنظیم میکنه که کاملاً بی‌حرکت نباشه
-    targetAiX = W / 2;
-    targetAiY = MALLET_R + 60; // از دروازه دور میمونه
-
-  } else if (currentLevel === 'medium') {
-    // متوسط: فقط دفاع - جلوی دروازه میمونه و X رو تنظیم میکنه
-    // تهاجم نداره، فقط از گل خوردن جلوگیری میکنه
-    targetAiY = MALLET_R + 15; // نزدیک دروازه خودش
-    // X رو با توپ هماهنگ میکنه ولی کنده
-    targetAiX = puck.x;
-
-  } else {
-    // سخت: پیش‌بینی + تهاجم
-    let predX = puck.x + puck.vx * lvl.predFrames;
-    let predY = puck.y + puck.vy * lvl.predFrames;
-
-    if (puck.vy < 0 && puck.y < aiZone) {
-      // توپ داره میاد - تهاجمی بره جلو
+  if (aiWillChase && puckComingToAI) {
+    // این راند AI تصمیم گرفته دنبال توپ بره
+    if (lvl.crossLine && puckCrossedLine) {
+      // توپ از خط رد شده - بره سمتش
+      let predX = puck.x + puck.vx * lvl.predFrames;
+      let predY = puck.y + puck.vy * lvl.predFrames;
       targetAiX = predX;
-      targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY - MALLET_R));
-    } else {
-      // دفاع هوشمند
-      targetAiX = Math.max(gx1 + MALLET_R, Math.min(gx2 - MALLET_R, puck.x));
-      targetAiY = MALLET_R + 10;
+      targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, predY));
+    } else if (!lvl.crossLine && puckCrossedLine) {
+      // آسون/متوسط - از خط رد شده ولی نمیره دنبالش، فقط X رو تنظیم میکنه
+      targetAiX = puck.x;
+      targetAiY = MALLET_R + 25;
+    } else if (puckCrossedLine) {
+      // هنوز از خط رد نشده
+      targetAiX = puck.x;
+      targetAiY = MALLET_R + 25;
     }
+  } else {
+    // دفاع - جلوی دروازه بمون
+    targetAiX = Math.max(gx1 + MALLET_R, Math.min(gx2 - MALLET_R, puck.x));
+    targetAiY = MALLET_R + 20;
   }
 
   targetAiX = Math.max(MALLET_R, Math.min(W - MALLET_R, targetAiX));
-  targetAiY = Math.max(MALLET_R, Math.min(H/2 - MALLET_R, targetAiY));
+  targetAiY = Math.max(MALLET_R, Math.min(aiZone - MALLET_R, targetAiY));
 
   const speed = lvl.speed * dt;
   const dxAi = targetAiX - ai.x;
