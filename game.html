@@ -191,6 +191,8 @@ let animId = null;
 let gameRunning = false;
 let lastTime = 0;
 let scoring = false; // جلوگیری از گل چندگانه
+let stuckTimer = 0; // تایمر برای تشخیص گیر کردن توپ
+let lastPuckX = 0, lastPuckY = 0;
 
 function resetPuck(dir) {
   puck = { 
@@ -266,11 +268,46 @@ function update(dt) {
   collideMallet(ai);
   updateAI(dt);
 
+  // تشخیص گیر کردن توپ - اگه ۳ ثانیه تکون نخورد ریست کن
+  const moved = Math.hypot(puck.x - lastPuckX, puck.y - lastPuckY);
+  if (moved < 0.5) {
+    stuckTimer += dt;
+    if (stuckTimer > 180) { // حدود ۳ ثانیه
+      puck.x = W / 2;
+      puck.y = H / 2;
+      puck.vx = (Math.random() - 0.5) * 8;
+      puck.vy = Math.random() > 0.5 ? 5 : -5;
+      stuckTimer = 0;
+    }
+  } else {
+    stuckTimer = 0;
+  }
+  lastPuckX = puck.x;
+  lastPuckY = puck.y;
+
   const MAX_SPEED = 18;
-  const speed = Math.hypot(puck.vx, puck.vy);
+  const MIN_SPEED = 3;
+  let speed = Math.hypot(puck.vx, puck.vy);
+
+  // اگه توپ خیلی کند شد (گیر کرده) سرعتش رو بده
+  if (speed < MIN_SPEED && speed > 0) {
+    puck.vx = puck.vx / speed * MIN_SPEED;
+    puck.vy = puck.vy / speed * MIN_SPEED;
+  }
+  // اگه کاملاً متوقف شد ریستش کن
+  if (speed === 0) {
+    puck.vx = (Math.random() - 0.5) * 6;
+    puck.vy = 4;
+  }
+
   if (speed > MAX_SPEED) {
     puck.vx = puck.vx / speed * MAX_SPEED;
     puck.vy = puck.vy / speed * MAX_SPEED;
+  }
+
+  // اگه توپ خیلی وقته داره فقط افقی حرکت میکنه، یکم زاویه بده
+  if (Math.abs(puck.vy) < 1) {
+    puck.vy = puck.vy >= 0 ? 2 : -2;
   }
 }
 
@@ -282,13 +319,20 @@ function collideMallet(mallet) {
   if (dist < minDist && dist > 0) {
     const nx = dx / dist;
     const ny = dy / dist;
-    puck.x = mallet.x + nx * minDist;
-    puck.y = mallet.y + ny * minDist;
+    // توپ رو کاملاً بیرون از مالت بذار
+    puck.x = mallet.x + nx * (minDist + 1);
+    puck.y = mallet.y + ny * (minDist + 1);
     const dot = puck.vx * nx + puck.vy * ny;
-    puck.vx -= 2 * dot * nx;
-    puck.vy -= 2 * dot * ny;
-    puck.vx *= 1.1;
-    puck.vy *= 1.1;
+    // فقط اگه داره به هم نزدیک میشن برگردون
+    if (dot < 0) {
+      puck.vx -= 2 * dot * nx;
+      puck.vy -= 2 * dot * ny;
+      puck.vx *= 1.1;
+      puck.vy *= 1.1;
+    }
+    // مطمئن بشیم توپ از دیوار هم بیرونه
+    puck.x = Math.max(PUCK_R + 1, Math.min(W - PUCK_R - 1, puck.x));
+    puck.y = Math.max(PUCK_R + 1, Math.min(H - PUCK_R - 1, puck.y));
   }
 }
 
