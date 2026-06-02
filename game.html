@@ -177,6 +177,77 @@
   .lb-row .score { opacity: 0.7; }
   .lb-row .level-tag { font-size: 10px; opacity: 0.5; }
   .lb-empty { opacity: 0.4; font-size: 14px; margin-top: 30px; }
+
+  /* تب‌های لیدربرد */
+  .lb-tabs {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    margin-bottom: 14px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .lb-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Vazirmatn', sans-serif;
+    border-radius: 9px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.4);
+    transition: all 0.2s;
+  }
+  .lb-tab.active {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+  }
+  .lb-tab-content { display: none; width: 100%; }
+  .lb-tab-content.active { display: flex; flex-direction: column; align-items: center; width: 100%; }
+
+  /* رنک‌های جهانی */
+  .global-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    gap: 10px;
+  }
+  .global-row.me {
+    background: rgba(0,245,255,0.08);
+    border-color: rgba(0,245,255,0.25);
+  }
+  .global-row.top1 { background: rgba(255,200,0,0.08); border-color: rgba(255,200,0,0.3); }
+  .global-row.top2 { background: rgba(180,180,180,0.07); border-color: rgba(180,180,180,0.2); }
+  .global-row.top3 { background: rgba(200,100,50,0.07); border-color: rgba(200,100,50,0.2); }
+  .global-rank { font-size: 18px; min-width: 28px; text-align: center; }
+  .global-name { flex: 1; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .global-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .global-wins { font-size: 14px; font-weight: 900; color: #00ff88; }
+  .global-rate { font-size: 10px; color: rgba(255,204,0,0.8); }
+  .lb-loading { opacity: 0.5; font-size: 14px; margin: 20px 0; }
+  .lb-error { color: #ff4466; font-size: 13px; margin: 20px 0; text-align: center; }
+  .lb-refresh-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
+    padding: 6px 18px;
+    font-size: 12px;
+    font-family: 'Vazirmatn', sans-serif;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    align-self: flex-end;
+  }
+
   .pause-menu {
     position: absolute;
     inset: 0;
@@ -248,9 +319,28 @@
     </div>
 
     <div id="leaderboard-panel" class="lb-panel hidden">
-      <div class="lb-title">🏆 لیدربرد شما</div>
-      <div id="lb-stats"></div>
-      <div id="lb-history"></div>
+      <div class="lb-title">🏆 لیدربرد</div>
+
+      <!-- تب‌ها -->
+      <div class="lb-tabs">
+        <button class="lb-tab active" onclick="switchTab('mine')">📊 آمار من</button>
+        <button class="lb-tab" onclick="switchTab('global')">🌍 برترین‌ها</button>
+      </div>
+
+      <!-- تب آمار شخصی -->
+      <div id="tab-mine" class="lb-tab-content active">
+        <div id="lb-stats"></div>
+        <div id="lb-history"></div>
+      </div>
+
+      <!-- تب لیدربرد جهانی -->
+      <div id="tab-global" class="lb-tab-content">
+        <button class="lb-refresh-btn" onclick="loadGlobalLeaderboard()">🔄 بروزرسانی</button>
+        <div id="global-lb-content">
+          <div class="lb-loading">در حال بارگذاری...</div>
+        </div>
+      </div>
+
       <button class="btn-lb" onclick="hideLeaderboard()">✕ بستن</button>
     </div>
   </div>
@@ -301,7 +391,85 @@ function recordResult(winner, pScore, aScore, level) {
   saveStats(stats);
 }
 
+// ── آدرس API لیدربرد جهانی - اینجا آدرس هاستت رو بذار ──
+const LEADERBOARD_API = 'https://YOUR-HOST.com/leaderboard.php';
+
+let currentTab = 'mine';
+let globalDataCache = null;
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.lb-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'mine') || (i === 1 && tab === 'global'));
+  });
+  document.getElementById('tab-mine').classList.toggle('active', tab === 'mine');
+  document.getElementById('tab-global').classList.toggle('active', tab === 'global');
+
+  if (tab === 'global' && !globalDataCache) {
+    loadGlobalLeaderboard();
+  }
+}
+
+async function loadGlobalLeaderboard() {
+  const container = document.getElementById('global-lb-content');
+  container.innerHTML = '<div class="lb-loading">⏳ در حال بارگذاری...</div>';
+
+  try {
+    const res = await fetch(LEADERBOARD_API, { cache: 'no-store' });
+    if (!res.ok) throw new Error('خطای سرور');
+    const json = await res.json();
+    if (!json.ok) throw new Error('داده نامعتبر');
+
+    globalDataCache = json.players;
+    renderGlobalLeaderboard(json.players);
+  } catch (e) {
+    container.innerHTML = `
+      <div class="lb-error">❌ خطا در بارگذاری<br><small>${e.message}</small></div>
+      <button class="btn-lb" onclick="loadGlobalLeaderboard()" style="margin-top:8px">دوباره تلاش</button>
+    `;
+  }
+}
+
+function renderGlobalLeaderboard(players) {
+  const container = document.getElementById('global-lb-content');
+  const myId = tg?.initDataUnsafe?.user?.id;
+
+  if (!players || players.length === 0) {
+    container.innerHTML = '<div class="lb-empty">هنوز کسی بازی نکرده!</div>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const rankClasses = ['top1','top2','top3'];
+
+  let html = '';
+  players.forEach((p, i) => {
+    const rank = medals[i] || `${i + 1}`;
+    const rankClass = rankClasses[i] || '';
+    const isMe = myId && String(myId) === String(p.uid);
+    html += `
+      <div class="global-row ${rankClass} ${isMe ? 'me' : ''}">
+        <div class="global-rank">${rank}</div>
+        <div class="global-name">${escapeHtml(p.name)}${isMe ? ' 👈' : ''}</div>
+        <div class="global-stats">
+          <div class="global-wins">🏆 ${p.wins}</div>
+          <div class="global-rate">${p.rate}% | ${p.total} بازی</div>
+        </div>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function showLeaderboard() {
+  // ریست به تب اول
+  switchTab('mine');
+  globalDataCache = null;
+
   const stats = loadStats();
   const total = stats.wins + stats.losses;
   const rate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
